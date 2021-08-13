@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.lb.d11.trs.task";
+option java_outer_classname = "TrsTaskProto";
+
+service TrsTaskService {
+    rpc  UserStats (TrsTaskStatsRequest) returns (TrsTaskStatsResponse) {}
+}
+
+message TrsTaskStatsRequest {
+    string userId = 1;
+}
+
+message TrsTaskStatsResponse {
+    string userId = 1;
+    int64 totalAmount = 2;
+}

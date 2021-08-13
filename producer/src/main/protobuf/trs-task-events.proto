@@ -1,0 +1,22 @@
+// serialization for the data on the Kafka topic
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.lb.d11.trs.task.serialization";
+option java_outer_classname = "TrsTaskEventProto";
+
+message TrsTaskMessage {
+   string userId = 1;
+   string roundId = 2;
+   string leagueId = 3;
+   string transType = 4;
+   int32 amount = 5;
+   string status = 6;
+   string transactionId = 7;
+   int32 lastAccountBalance= 8;
+}
+
+message UserActionProto {
+   string user_id = 1;
+   string description = 2;
+}
