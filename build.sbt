@@ -48,6 +48,7 @@ lazy val processor = project
       "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
       "com.lightbend.akka.management" %% "akka-management" % AkkaManagementVersion,
       "com.lightbend.akka.management" %% "akka-management-cluster-http" % AkkaManagementVersion,
+      "com.lightbend.akka" %% "akka-stream-alpakka-slick" % "3.0.3",
       "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
       "ch.qos.logback" % "logback-classic" % LogbackVersion,
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,

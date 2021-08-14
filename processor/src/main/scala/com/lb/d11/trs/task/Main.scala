@@ -8,6 +8,8 @@ import akka.grpc.scaladsl.{ServerReflection, ServiceHandler}
 import akka.http.scaladsl._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.management.scaladsl.AkkaManagement
+import akka.stream.scaladsl.{Keep, Sink, Source}
+
 import scala.concurrent.duration._
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -44,7 +46,11 @@ object Main {
         val upAdapter = ctx.messageAdapter[SelfUp](_ => NodeMemberUp)
         cluster.subscriptions ! Subscribe(upAdapter, classOf[SelfUp])
         val settings = ProcessorSettings("kafka-to-sharding-processor", ctx.system.toClassic)
-        ctx.pipeToSelf(TrsTask.init(ctx.system, settings)) {
+
+        val slickMySql:SlickPostgres = new SlickPostgres(ctx.system)
+        ctx.system.toClassic.registerOnTermination(slickMySql.session.close())
+
+        ctx.pipeToSelf(TrsTask.init(ctx.system, settings,slickMySql)) {
           case Success(extractor) => ShardingStarted(extractor)
           case Failure(ex) => throw ex
         }
@@ -115,6 +121,5 @@ object Main {
       akka.remote.artery.canonical.port = $port
       akka.management.http.port = $managementPort
        """).withFallback(ConfigFactory.load())
-
   }
 }

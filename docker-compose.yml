@@ -15,3 +15,10 @@ services:
       KAFKA_CREATE_TOPICS: "user-events:128:1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+  postgres-db:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: trs-task
+      POSTGRES_PASSWORD: trs-task

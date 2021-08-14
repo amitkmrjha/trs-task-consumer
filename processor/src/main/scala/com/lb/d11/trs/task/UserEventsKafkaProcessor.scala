@@ -63,6 +63,8 @@ object UserEventsKafkaProcessor {
       .withRebalanceListener(rebalanceListener.toClassic)
 
 
+
+
     Consumer.sourceWithOffsetContext(processorSettings.kafkaConsumerSettings(), subscription)
       // MapAsync and Retries can be replaced by reliable delivery
       .mapAsync(20) { record =>
