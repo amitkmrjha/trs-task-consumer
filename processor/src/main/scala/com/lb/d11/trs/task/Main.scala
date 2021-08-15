@@ -48,7 +48,7 @@ object Main {
         val settings = ProcessorSettings("kafka-to-sharding-processor", ctx.system.toClassic)
 
         val slickMySql:SlickPostgres = new SlickPostgres(ctx.system)
-        ctx.system.toClassic.registerOnTermination(slickMySql.session.close())
+        //ctx.system.toClassic.registerOnTermination(() => slickMySql.session.close())
 
         ctx.pipeToSelf(TrsTask.init(ctx.system, settings,slickMySql)) {
           case Success(extractor) => ShardingStarted(extractor)

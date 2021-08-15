@@ -49,6 +49,7 @@ lazy val processor = project
       "com.lightbend.akka.management" %% "akka-management" % AkkaManagementVersion,
       "com.lightbend.akka.management" %% "akka-management-cluster-http" % AkkaManagementVersion,
       "com.lightbend.akka" %% "akka-stream-alpakka-slick" % "3.0.3",
+      "org.postgresql" % "postgresql" % "42.2.23",
       "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
       "ch.qos.logback" % "logback-classic" % LogbackVersion,
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
