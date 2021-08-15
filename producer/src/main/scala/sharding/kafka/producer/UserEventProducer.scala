@@ -37,7 +37,6 @@ object UserEventProducer extends App {
   val maxRound = 50
   val maxLeague = 50
   val amountMax = 50000
-  val amountTransactionId = 100000
 
   val done: Future[Done] =
     Source
@@ -49,7 +48,7 @@ object UserEventProducer extends App {
         val trsType = "Wallet"
         val amount = Random.nextInt(amountMax)
         val status = "Success"
-        val tId = Random.nextInt(amountTransactionId).toString
+        val tId = java.util.UUID.randomUUID.toString
         val balance = 0;
         val message = TrsTaskMessage(randomEntityId, round,league, trsType, amount,status,tId,balance).toByteArray
         log.info("Sending message to user {}", randomEntityId)

@@ -14,18 +14,37 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.Future
 
 class  SlickPostgres(system: ActorSystem[_]) {
-  //implicit val session = SlickSession.forConfig("slick-postgres")
+  implicit val session = SlickSession.forConfig("slick-postgres")
 
   val jdbcQueue:SourceQueueWithComplete[UserTrsTask] = {
-   // import session.profile.api._
+    import session.profile.api._
 
-    val bufferSize = 1000
+    val bufferSize = 100
     implicit val sys = system
+    /*Source
+      .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
+      .toMat(Slick.sink(toUserSql))(Keep.left)
+      .run*/
+
+    Source
+      .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
+      .via(Slick.flow(toUserSql))
+      .log("nr-of-updated-rows")
+      .toMat(Sink.ignore)(Keep.left)
+      .run
+
 
     /*Source
       .queue[UserTrsTask](bufferSize, OverflowStrategy.fail)
       .toMat(
-        Slick.sink(user => sqlu"""INSERT INTO wallet VALUES(
+        Sink.ignore
+      )(Keep.left)
+      .run*/
+  }
+
+  def toUserSql(user:UserTrsTask) = {
+    import session.profile.api._
+    sqlu"""INSERT INTO wallet VALUES(
         ${user.userId},
         ${user.roundId},
         ${user.leagueId},
@@ -34,17 +53,7 @@ class  SlickPostgres(system: ActorSystem[_]) {
         ${user.status},
         ${user.transactionId},
         ${user.lastAccountBalance}
-        )""")
-      )(Keep.left)
-      .run*/
-
-
-    Source
-      .queue[UserTrsTask](bufferSize, OverflowStrategy.fail)
-      .toMat(
-        Sink.ignore
-      )(Keep.left)
-      .run
+        )"""
   }
 
 }

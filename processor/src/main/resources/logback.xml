@@ -11,6 +11,9 @@
 
     <logger name="akka.cluster.sharding" level="DEBUG" />
 
+    <!-- <logger name="slick.jdbc" level="DEBUG" />
+    <logger name="com.zaxxer" level="DEBUG" />  -->
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
