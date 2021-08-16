@@ -16,8 +16,23 @@ The sample demonstrates how the external shard allocation strategy can be used s
 The sample depends on a Kafka broker running locally on port `9092` with a topic with 128 partitions called `user-events`. 
 [Kafka can be run in Docker](https://github.com/wurstmeister/kafka-docker) .
 
+### Set up - Akka Telemetry 
+Project is configured to use Akka Cinnamon . We need to configure provide credential detail.
+[Instruction](https://developer.lightbend.com/docs/telemetry/current/getting-started/start.html)
 
-Once the Kafka is started we can start the processor
+### Set up - Set up Kafka and Postgres Data base
+```
+  docker compose up -d 
+```
+Once the postgres database is running , we need to execute following command to create table for kafk consumer to store record.
+
+```
+docker exec -i trs-task-consumer_postgres-db_1 psql -U trs-task -t < ddl-scripts/create_wallet_tables.sql
+
+```
+
+
+Once the Kafka  and database is started we can start the processor
  
 ```
 sbt "processor / run 2551 8551 8081"
