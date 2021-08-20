@@ -11,6 +11,7 @@ import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
+import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Random
@@ -37,10 +38,10 @@ object UserEventProducer extends App {
   val maxRound = 50
   val maxLeague = 50
   val amountMax = 50000
-
+   val aLong = new AtomicLong
   val done: Future[Done] =
     Source
-      .tick(1.second, 1.second, "tick")
+      .tick(1.second, 1.millis, "tick")
       .map(_ => {
         val randomEntityId = Random.nextInt(nrUsers).toString
         val round = Random.nextInt(maxRound).toString
@@ -48,7 +49,7 @@ object UserEventProducer extends App {
         val trsType = "Wallet"
         val amount = Random.nextInt(amountMax)
         val status = "Success"
-        val tId = java.util.UUID.randomUUID.toString
+        val tId = aLong.incrementAndGet().toString
         val balance = 0;
         val message = TrsTaskMessage(randomEntityId, round,league, trsType, amount,status,tId,balance).toByteArray
         log.info("Sending message to user {}", randomEntityId)

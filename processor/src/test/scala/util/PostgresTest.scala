@@ -1,7 +1,7 @@
 package util
 import akka.Done
 import akka.actor.ActorSystem
-import com.lb.d11.trs.task.TrsTask.UserTrsTask
+import com.lb.d11.trs.task.TrsTask.AddTrsTask
 import slick.backend.DatabaseConfig
 import slick.jdbc.JdbcProfile
 //#important-imports

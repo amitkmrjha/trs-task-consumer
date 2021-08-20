@@ -31,8 +31,11 @@ Project is configured to use Akka Cinnamon . We need to configure provide creden
 Once the postgres database is running , we need to execute following command to create table for kafk consumer to store record.
 
 ```
-docker exec -i trs-task-consumer_postgres-db_1 psql -U trs-task -t < ddl-scripts/create_wallet_tables.sql
+docker exec -i trs-task-consumer_postgres-db_1 psql -U trs-task -t < ddl-scripts/create_tables.sql
+```
 
+```
+docker exec -i trs-task-consumer_postgres-db_1 psql -U trs-task -t < ddl-scripts/create_wallet_tables.sql
 ```
 
 

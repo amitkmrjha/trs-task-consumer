@@ -72,7 +72,7 @@ object UserEventsKafkaProcessor {
         retry(() =>
           shardRegion.ask[Done](replyTo => {
             val messageProto = TrsTaskMessage.parseFrom(record.value())
-            TrsTask.UserTrsTask(
+            val taskInfo = TrsTask.TaskInfo(
               messageProto.userId,
               messageProto.roundId,
               messageProto.leagueId,
@@ -80,8 +80,9 @@ object UserEventsKafkaProcessor {
               messageProto.amount,
               messageProto.status,
               messageProto.transactionId,
-              messageProto.lastAccountBalance,
-              replyTo)
+              messageProto.lastAccountBalance)
+            val recordInfo = TrsTask.ConsumerRecordInfo(record.key(),record.offset(),record.partition(),record.topic())
+            TrsTask.AddTrsTask(messageProto.userId,taskInfo,recordInfo,replyTo)
           })(processorSettings.askTimeout, actorSystem.scheduler),
           attempts = 5,
           delay = 1.second

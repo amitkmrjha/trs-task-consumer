@@ -1,23 +1,36 @@
 package com.lb.d11.trs.task
 
 import akka.Done
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.cluster.sharding.external.ExternalShardAllocationStrategy
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.kafka.cluster.sharding.KafkaClusterSharding
-import akka.pattern.{ask, pipe}
-import akka.stream.{OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
+import akka.persistence.typed.PersistenceId
+import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
+import com.google.common.collect.EvictingQueue
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Failure
-import scala.util.Success
+import scala.jdk.CollectionConverters._
 
 object TrsTask {
 
-  def init(system: ActorSystem[_], settings: ProcessorSettings,slickMySql:SlickPostgres): Future[ActorRef[Command]] = {
+  final case class State(totalTask: Int,
+                         topTask:util.Queue[ConsumerRecordInfo] = EvictingQueue.create(10))extends CborSerializable{
+    def update(taskInfo: TaskInfo,consumerRecordInfo: ConsumerRecordInfo):State = {
+     topTask.add(consumerRecordInfo)
+      State(totalTask+1,topTask)
+    }
+  }
+  object State {
+    def emptyInit =
+      State(0)
+  }
+
+  val tags = Vector.tabulate(10)(i => s"trs-task-$i")
+
+  def init(system: ActorSystem[_], settings: ProcessorSettings): Future[ActorRef[Command]] = {
     import system.executionContext
     KafkaClusterSharding(settings.system).messageExtractorNoEnvelope(
       timeout = 10.seconds,
@@ -27,58 +40,88 @@ object TrsTask {
     ).map(messageExtractor => {
       system.log.info("Message extractor created. Initializing sharding")
       ClusterSharding(system).init(
-        Entity(settings.entityTypeKey)(createBehavior = _ => TrsTask(slickMySql))
+        Entity(settings.entityTypeKey) { entityContext =>
+          val i = math.abs(entityContext.entityId.hashCode % tags.size)
+          val selectedTag = tags(i)
+          TrsTask(entityContext.entityId,selectedTag,settings)
+        }
           .withAllocationStrategy(new ExternalShardAllocationStrategy(system, settings.entityTypeKey.name))
           .withMessageExtractor(messageExtractor))
     })
   }
 
+
+
   sealed trait Command extends CborSerializable {
     def userId: String
   }
 
-  final case class UserTrsTask(userId: String,roundId: String,leagueId: String,transType: String,
-                               amount: Int, status: String, transactionId: String,lastAccountBalance: Int,
-                               replyTo: ActorRef[Done]) extends Command
-  final case class QueueSubmitStatus(userId: String,amount: Int,status: String,replyTo: ActorRef[Done])  extends Command
+  final case class AddTrsTask(userId:String,taskInfo: TaskInfo,
+                              consumerRecordInfo: ConsumerRecordInfo,replyTo: ActorRef[Done]) extends Command
 
-  final case class GetRunningTotal(userId: String, replyTo: ActorRef[RunningTotal]) extends Command
+  final case class TaskInfo(userId: String, roundId: String, leagueId: String, transType: String,
+                            amount: Int, status: String, transactionId: String, lastAccountBalance: Int)
+    extends CborSerializable
 
-  // state
-  final case class RunningTotal(total: Int) extends CborSerializable
+  final case class ConsumerRecordInfo(key:String, offset: Long,partition: Int,topic: String )
+    extends CborSerializable
 
-  def apply(slickMySql:SlickPostgres): Behavior[Command] = running(RunningTotal(0),slickMySql)
+  final case class GetTrsTask(userId: String, replyTo: ActorRef[TrsTaskSummary]) extends Command
 
-  private def running(runningTotal: RunningTotal,slickMySql:SlickPostgres): Behavior[Command] = {
-    Behaviors.setup { ctx =>
-      implicit val ec: ExecutionContext = ctx.executionContext
-      Behaviors.receiveMessage[Command] {
-        case x:UserTrsTask =>
-          val futureResult = queueOffer(slickMySql,x)
-         ctx.pipeToSelf(futureResult){
-           case Success(s) => QueueSubmitStatus(x.userId,x.amount,s, x.replyTo)
-           case Failure(e) => QueueSubmitStatus(x.userId,x.amount,e.getMessage, x.replyTo)
-         }
-          Behaviors.same
-        case GetRunningTotal(id, replyTo) =>
-          ctx.log.info("user {} running total queried", id)
-          replyTo ! runningTotal
-          Behaviors.same
-        case QueueSubmitStatus(id,amount,status,replyTo) =>
-          val total = runningTotal.total+amount
-          replyTo ! Done
-          ctx.log.info("user {}, runningTotal {}, queue submit {}", id,total,status)
-          running(runningTotal.copy(total),slickMySql)
-      }
+  final case class TrsTaskSummary(totalTask: Int,
+                                  topTask:List[ConsumerRecordInfo]) extends CborSerializable
+
+
+  sealed trait Event extends CborSerializable {
+    def userId: String
+  }
+
+  final case class TrsTaskAdded(userId: String, taskInfo: TaskInfo,
+                                consumerRecordInfo: ConsumerRecordInfo) extends Event
+
+  def apply(userId: String,projectionTag: String,settings: ProcessorSettings): Behavior[Command] = {
+    EventSourcedBehavior
+      .withEnforcedReplies[Command, Event, State](
+        persistenceId = PersistenceId(settings.entityTypeKey.name, userId),
+        emptyState = State.emptyInit,
+        commandHandler =
+          (state, command) => handleCommand(userId, state, command),
+        eventHandler = (state, event) => handleEvent(state, event))
+      .withTagger(_ => Set(projectionTag))
+      .withRetention(RetentionCriteria
+        .snapshotEvery(numberOfEvents = 100, keepNSnapshots = 3))
+      .onPersistFailure(
+        SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1)
+      )
+  }
+
+  private def handleCommand( userId: String,
+                             state: State,
+                             command: Command): ReplyEffect[Event, State] = {
+    processTrsTask(state, command)
+  }
+
+  private def processTrsTask(state: State,command: Command): ReplyEffect[Event, State] = {
+    command match {
+      case x:AddTrsTask=>
+          Effect
+            .persist(
+              TrsTaskAdded(x.userId,x.taskInfo,x.consumerRecordInfo)
+            ).thenReply(x.replyTo) { task => Done}
+      case GetTrsTask(userId,replyTo) =>
+        val trsTaskSummary = TrsTaskSummary(state.totalTask,
+          new util.ArrayList[ConsumerRecordInfo](state.totalTask).asScala.toList
+        )
+        Effect.reply(replyTo)(trsTaskSummary)
     }
   }
 
-  def queueOffer(slickMySql:SlickPostgres,task:UserTrsTask)(implicit  ec:ExecutionContext ) = {
-    slickMySql.jdbcQueue.offer(task) map{
-      case QueueOfferResult.Enqueued    => s"enqueued ${task.userId} ${task.amount}"
-      case QueueOfferResult.Dropped     => s"dropped ${task.userId} ${task.amount}"
-      case QueueOfferResult.Failure(ex) => s"Offer failed ${ex.getMessage}"
-      case QueueOfferResult.QueueClosed => "Source Queue closed"
+  private def handleEvent(state: State, event: Event): State = {
+    event match {
+      case x:TrsTaskAdded=>
+        state.update(x.taskInfo,x.consumerRecordInfo)
     }
   }
+
+
 }

@@ -3,6 +3,9 @@ val AlpakkaKafkaVersion = "2.1.1"
 val AkkaManagementVersion = "1.1.1"
 val AkkaHttpVersion = "10.2.6"
 val LogbackVersion = "1.2.3"
+val AkkaPersistenceJdbcVersion = "5.0.1"
+val AkkaProjectionVersion = "1.2.1"
+val ScalikeJdbcVersion = "3.5.0"
 
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / organization := "com.lightbend.akka.samples"
@@ -48,7 +51,20 @@ lazy val processor = project
       "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
       "com.lightbend.akka.management" %% "akka-management" % AkkaManagementVersion,
       "com.lightbend.akka.management" %% "akka-management-cluster-http" % AkkaManagementVersion,
-      "com.lightbend.akka" %% "akka-stream-alpakka-slick" % "3.0.3",
+      // 3. Using Akka Persistence
+      "com.typesafe.akka" %% "akka-persistence-typed" % AkkaVersion,
+      "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
+      "com.lightbend.akka" %% "akka-persistence-jdbc" % AkkaPersistenceJdbcVersion,
+      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion % Test,
+      "org.postgresql" % "postgresql" % "42.2.18",
+      // 4. Querying or projecting data from Akka Persistence
+      "com.typesafe.akka" %% "akka-persistence-query" % AkkaVersion,
+      "com.lightbend.akka" %% "akka-projection-eventsourced" % AkkaProjectionVersion,
+      "com.lightbend.akka" %% "akka-projection-jdbc" % AkkaProjectionVersion,
+      "org.scalikejdbc" %% "scalikejdbc" % ScalikeJdbcVersion,
+      "org.scalikejdbc" %% "scalikejdbc-config" % ScalikeJdbcVersion,
+      "com.typesafe.akka" %% "akka-stream-kafka" % AlpakkaKafkaVersion,
+      "com.lightbend.akka" %% "akka-projection-testkit" % AkkaProjectionVersion % Test,
       "org.postgresql" % "postgresql" % "42.2.23",
       "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
       "ch.qos.logback" % "logback-classic" % LogbackVersion,
