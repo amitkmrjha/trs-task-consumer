@@ -41,7 +41,7 @@ object UserEventProducer extends App {
    val aLong = new AtomicLong
   val done: Future[Done] =
     Source
-      .tick(1.second, 1.millis, "tick")
+      .tick(1.second, 1.second, "tick")
       .map(_ => {
         val randomEntityId = Random.nextInt(nrUsers).toString
         val round = Random.nextInt(maxRound).toString

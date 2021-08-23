@@ -25,8 +25,7 @@ class TrsTaskProjectionHandler( tag: String,
 
   private def logTrsTaskAdded( trsTask:TrsTaskAdded ): Unit = {
     val cri = trsTask.consumerRecordInfo
-    log.info(s"TrsTaskProjectionHandler is adding event to repository  for user id ${trsTask.userId}" +
-      s" Kafka key ${cri.key} offset ${cri.offset} partition ${cri.partition} topic ${cri.topic}")
+    log.info(s"t[${cri.topic}] k[${cri.key}] o[${cri.offset}] p[${cri.partition}]")
   }
 
 }

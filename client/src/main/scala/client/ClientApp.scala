@@ -24,7 +24,7 @@ object ClientApp extends App {
     if (userId != ":q") {
       val runningTotal = Await.result(client.userStats(TrsTaskStatsRequest(userId)), Duration.Inf)
       println(
-        s"User ${userId} has total ${runningTotal.totalAmount}")
+        s"User ${userId} has total ${runningTotal}")
     }
 
   }
