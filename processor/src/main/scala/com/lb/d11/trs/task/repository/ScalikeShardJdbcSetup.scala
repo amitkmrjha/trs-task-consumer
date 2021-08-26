@@ -3,15 +3,13 @@ package com.lb.d11.trs.task.repository
 import akka.actor.typed.ActorSystem
 import com.typesafe.config.Config
 import com.zaxxer.hikari.HikariDataSource
-import scalikejdbc.ConnectionPool
-import scalikejdbc.DataSourceCloser
-import scalikejdbc.DataSourceConnectionPool
+import scalikejdbc.{ConnectionPool, DataSourceCloser, DataSourceConnectionPool}
 import scalikejdbc.config.DBs
 import scalikejdbc.config.NoEnvPrefix
 import scalikejdbc.config.TypesafeConfig
 import scalikejdbc.config.TypesafeConfigReader
 
-object ScalikeJdbcSetup {
+object ScalikeShardJdbcSetup {
 
   /**
    * Initiate the ScalikeJDBC connection pool configuration and shutdown.
@@ -36,31 +34,35 @@ object ScalikeJdbcSetup {
     val dbs = new DBsFromConfig(config)
     dbs.loadGlobalSettings()
 
-    val dataSource = buildDataSource(
-      config.getConfig("jdbc-connection-settings"))
-
-    ConnectionPool.singleton(
-      new DataSourceConnectionPool(
+    val dataSourceSeq = buildShardedDataSource(
+      ShardedDataBaseConfig.toShardedDataBase(config))
+    dataSourceSeq.foreach{dataSourceKV =>
+      val name = dataSourceKV._1
+      val dataSource = dataSourceKV._2
+      val dataSourceConnectionPool = new DataSourceConnectionPool(
         dataSource = dataSource,
-        closer = HikariCloser(dataSource)))
+        closer = HikariCloser(dataSource))
+      ConnectionPool.add(name,dataSourceConnectionPool)
+    }
   }
+  private def buildShardedDataSource(shardedDataBases: Seq[ShardedDataBaseConfig]): Map[ShardedDataBase,HikariDataSource] = {
+    shardedDataBases.map{sharded =>
+      val dataSource = new HikariDataSource()
 
-  private def buildDataSource(config: Config): HikariDataSource = {
-    val dataSource = new HikariDataSource()
+      dataSource.setPoolName("read-side-connection-pool")
+      dataSource.setMaximumPoolSize(
+        sharded.config.getInt("connection-pool.max-pool-size"))
 
-    dataSource.setPoolName("read-side-connection-pool")
-    dataSource.setMaximumPoolSize(
-      config.getInt("connection-pool.max-pool-size"))
+      val timeout = sharded.config.getDuration("connection-pool.timeout").toMillis
+      dataSource.setConnectionTimeout(timeout)
 
-    val timeout = config.getDuration("connection-pool.timeout").toMillis
-    dataSource.setConnectionTimeout(timeout)
+      dataSource.setDriverClassName(sharded.config.getString("driver"))
+      dataSource.setJdbcUrl(sharded.config.getString("url"))
+      dataSource.setUsername(sharded.config.getString("user"))
+      dataSource.setPassword(sharded.config.getString("password"))
 
-    dataSource.setDriverClassName(config.getString("driver"))
-    dataSource.setJdbcUrl(config.getString("url"))
-    dataSource.setUsername(config.getString("user"))
-    dataSource.setPassword(config.getString("password"))
-
-    dataSource
+      sharded.dataBase -> dataSource
+    }.toMap
   }
 
   /**

@@ -4,7 +4,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, DispatcherSelector, Scheduler}
 import akka.util.Timeout
 import com.lb.d11.trs.task.TrsTask.{Command, GetTrsTask, TrsTaskSummary}
-import com.lb.d11.trs.task.repository.{ScalikeJdbcSession, WalletRepository}
+import com.lb.d11.trs.task.repository.{ShardedDataBase, ScalikeJdbcSession, WalletRepository}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
@@ -31,6 +31,7 @@ class TrsTaskGrpcService(system: ActorSystem[_], shardRegion: ActorRef[Command],
   }
 
   override def trsTaskByUser(in: TrsTaskStatsRequest): Future[TrsTaskRecordResponse] = {
+    implicit val dbName = ShardedDataBase("TBD")
     Future {
       ScalikeJdbcSession.withSession { session =>
         walletRepository.getTrsTaskByUserId(session, in.userId)

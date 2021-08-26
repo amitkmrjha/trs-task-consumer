@@ -10,7 +10,7 @@ import akka.projection.eventsourced.scaladsl.EventSourcedProvider
 import akka.projection.jdbc.scaladsl.JdbcProjection
 import akka.projection.scaladsl.{ExactlyOnceProjection, SourceProvider}
 import akka.projection.{ProjectionBehavior, ProjectionId}
-import com.lb.d11.trs.task.repository.{ScalikeJdbcSession, WalletRepository}
+import com.lb.d11.trs.task.repository.{ShardedDataBase, ScalikeJdbcSession, WalletRepository}
 
 object TrsTaskProjection {
 
@@ -31,7 +31,7 @@ object TrsTaskProjection {
                                    repository: WalletRepository,
                                    index: Int): ExactlyOnceProjection[Offset, EventEnvelope[TrsTask.Event]] = {
     val tag = TrsTask.tags(index)
-
+ implicit  val dataBase = ShardedDataBase("TBD")
     val sourceProvider
     : SourceProvider[Offset, EventEnvelope[TrsTask.Event]] =
       EventSourcedProvider.eventsByTag[TrsTask.Event](

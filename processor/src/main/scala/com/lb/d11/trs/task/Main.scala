@@ -9,7 +9,7 @@ import akka.http.scaladsl._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.management.scaladsl.AkkaManagement
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.lb.d11.trs.task.repository.{ScalikeJdbcSetup, WalletRepository, WalletRepositoryImpl}
+import com.lb.d11.trs.task.repository.{ScalikeShardJdbcSetup, WalletRepository, WalletRepositoryImpl}
 
 import scala.concurrent.duration._
 import com.typesafe.config.{Config, ConfigFactory}
@@ -46,7 +46,7 @@ object Main {
         val cluster = Cluster(ctx.system)
         val upAdapter = ctx.messageAdapter[SelfUp](_ => NodeMemberUp)
         cluster.subscriptions ! Subscribe(upAdapter, classOf[SelfUp])
-        ScalikeJdbcSetup.init(ctx.system)
+        ScalikeShardJdbcSetup.init(ctx.system)
         val walletRepository = new WalletRepositoryImpl()
         TrsTaskProjection.init(ctx.system, walletRepository)
 
