@@ -16,12 +16,13 @@ object TrsTaskProjection {
 
   def init(
             system: ActorSystem[_],
-            repository: WalletRepository): Unit = {
+            repository: WalletRepository,
+            shardedDataBases:Seq[ShardedDataBase]): Unit = {
     ShardedDaemonProcess(system).init(
       name = "TrsTaskProjection",
-      TrsTask.tags.size,
+      TrsTask.EntityTag.tags.size,
       index =>
-        ProjectionBehavior(createProjectionFor(system, repository, index)),
+        ProjectionBehavior(createProjectionFor(system, repository, index,shardedDataBases)),
       ShardedDaemonProcessSettings(system),
       Some(ProjectionBehavior.Stop))
   }
@@ -29,15 +30,22 @@ object TrsTaskProjection {
   private def createProjectionFor(
                                    system: ActorSystem[_],
                                    repository: WalletRepository,
-                                   index: Int): ExactlyOnceProjection[Offset, EventEnvelope[TrsTask.Event]] = {
-    val tag = TrsTask.tags(index)
- implicit  val dataBase = ShardedDataBase("TBD")
+                                   index: Int,
+                                   shardedDataBases:Seq[ShardedDataBase]): ExactlyOnceProjection[Offset, EventEnvelope[TrsTask.Event]] = {
+    val tag = TrsTask.EntityTag.tags(index)
     val sourceProvider
     : SourceProvider[Offset, EventEnvelope[TrsTask.Event]] =
       EventSourcedProvider.eventsByTag[TrsTask.Event](
         system = system,
         readJournalPluginId = JdbcReadJournal.Identifier,
         tag = tag)
+
+    val shardDBId = TrsTask.EntityTag.toEntityTag(tag).shardDBId
+
+    implicit  val dataBase =
+      shardedDataBases.find(p => p.name.contains((shardDBId+1).toString)).getOrElse(shardedDataBases(shardDBId))
+
+    system.log.info(s"tag ${tag} will get proceesed in shard data base ${dataBase.name}")
 
     JdbcProjection.exactlyOnce(
       projectionId = ProjectionId("TrsTaskProjection", tag),

@@ -4,6 +4,10 @@ import com.typesafe.config.{Config, ConfigObject, ConfigValue}
 
 import scala.jdk.CollectionConverters._
 final case class ShardedDataBase(name:String)
+object ShardedDataBase {
+
+}
+
 final case class ShardedDataBaseConfig(dataBase: ShardedDataBase, config: Config)
 object ShardedDataBaseConfig {
   def toShardedDataBase(config:Config): Seq[ShardedDataBaseConfig] = {

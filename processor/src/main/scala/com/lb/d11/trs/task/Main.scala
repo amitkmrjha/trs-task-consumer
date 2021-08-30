@@ -46,9 +46,10 @@ object Main {
         val cluster = Cluster(ctx.system)
         val upAdapter = ctx.messageAdapter[SelfUp](_ => NodeMemberUp)
         cluster.subscriptions ! Subscribe(upAdapter, classOf[SelfUp])
-        ScalikeShardJdbcSetup.init(ctx.system)
+        val shardedDataBases = ScalikeShardJdbcSetup.init(ctx.system)
+
         val walletRepository = new WalletRepositoryImpl()
-        TrsTaskProjection.init(ctx.system, walletRepository)
+        TrsTaskProjection.init(ctx.system, walletRepository,shardedDataBases)
 
         val settings = ProcessorSettings("kafka-to-sharding-processor", ctx.system.toClassic)
         ctx.pipeToSelf(TrsTask.init(ctx.system, settings)) {

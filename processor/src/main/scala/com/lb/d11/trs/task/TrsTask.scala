@@ -7,6 +7,7 @@ import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.kafka.cluster.sharding.KafkaClusterSharding
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
+import akka.serialization.SerializationExtension
 import com.google.common.collect.EvictingQueue
 
 import java.util
@@ -15,6 +16,8 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 object TrsTask {
+
+  val entityIdentifier = "trs-task"
 
   final case class State(totalTask: Int,
                          topTask:util.Queue[ConsumerRecordInfo] = EvictingQueue.create(10))extends CborSerializable{
@@ -28,7 +31,20 @@ object TrsTask {
       State(0)
   }
 
-  val tags = Vector.tabulate(10)(i => s"trs-task-$i")
+  final case class EntityTag(name: String, shardDBId: Int,projectionId: Int)
+  object EntityTag{
+    private val fieldSeprator = '|'
+    val tags = Vector.tabulate(4)(shardDBId => s"$entityIdentifier$fieldSeprator$shardDBId")flatMap { e =>
+      Vector.tabulate(2) ( projectionId => s"$e$fieldSeprator$projectionId")
+    }
+
+    def toEntityTag(tagString: String) : EntityTag = {
+      val fields = tagString.split(fieldSeprator)
+      EntityTag(fields(0),fields(1).toInt,fields(2).toInt)
+    }
+
+  }
+
 
   def init(system: ActorSystem[_], settings: ProcessorSettings): Future[ActorRef[Command]] = {
     import system.executionContext
@@ -41,8 +57,8 @@ object TrsTask {
       system.log.info("Message extractor created. Initializing sharding")
       ClusterSharding(system).init(
         Entity(settings.entityTypeKey) { entityContext =>
-          val i = math.abs(entityContext.entityId.hashCode % tags.size)
-          val selectedTag = tags(i)
+          val i = math.abs(entityContext.entityId.hashCode % EntityTag.tags.size)
+          val selectedTag = EntityTag.tags(i)
           TrsTask(entityContext.entityId,selectedTag,settings)
         }
           .withAllocationStrategy(new ExternalShardAllocationStrategy(system, settings.entityTypeKey.name))

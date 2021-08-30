@@ -17,19 +17,19 @@ object ScalikeShardJdbcSetup {
    *
    * The connection pool will be closed when the actor system terminates.
    */
-  def init(system: ActorSystem[_]): Unit = {
-    initFromConfig(system.settings.config)
+  def init(system: ActorSystem[_]): Seq[ShardedDataBase] = {
+    val shardedDataBases = initFromConfig(system.settings.config)
     system.whenTerminated.map { _ =>
       ConnectionPool.closeAll()
     }(scala.concurrent.ExecutionContext.Implicits.global)
-
+    shardedDataBases
   }
 
   /**
    * Builds a Hikari DataSource with values from jdbc-connection-settings.
    * The DataSource is then configured as the 'default' connection pool for ScalikeJDBC.
    */
-  private def initFromConfig(config: Config): Unit = {
+  private def initFromConfig(config: Config): Seq[ShardedDataBase] = {
 
     val dbs = new DBsFromConfig(config)
     dbs.loadGlobalSettings()
@@ -44,6 +44,8 @@ object ScalikeShardJdbcSetup {
         closer = HikariCloser(dataSource))
       ConnectionPool.add(name,dataSourceConnectionPool)
     }
+    dataSourceSeq.keys.toSeq
+
   }
   private def buildShardedDataSource(shardedDataBases: Seq[ShardedDataBaseConfig]): Map[ShardedDataBase,HikariDataSource] = {
     shardedDataBases.map{sharded =>
