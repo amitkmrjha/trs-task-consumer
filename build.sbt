@@ -56,7 +56,7 @@ lazy val processor = project
       "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
       "com.lightbend.akka" %% "akka-persistence-jdbc" % AkkaPersistenceJdbcVersion,
       "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion % Test,
-      "org.postgresql" % "postgresql" % "42.2.18",
+      "mysql" % "mysql-connector-java" % "8.0.26",
       // 4. Querying or projecting data from Akka Persistence
       "com.typesafe.akka" %% "akka-persistence-query" % AkkaVersion,
       "com.lightbend.akka" %% "akka-projection-eventsourced" % AkkaProjectionVersion,
@@ -65,7 +65,6 @@ lazy val processor = project
       "org.scalikejdbc" %% "scalikejdbc-config" % ScalikeJdbcVersion,
       "com.typesafe.akka" %% "akka-stream-kafka" % AlpakkaKafkaVersion,
       "com.lightbend.akka" %% "akka-projection-testkit" % AkkaProjectionVersion % Test,
-      "org.postgresql" % "postgresql" % "42.2.23",
       "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
       "ch.qos.logback" % "logback-classic" % LogbackVersion,
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,

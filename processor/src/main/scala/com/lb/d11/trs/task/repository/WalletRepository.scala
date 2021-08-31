@@ -31,7 +31,7 @@ class WalletRepositoryImpl() extends WalletRepository {
         ${taskInfo.status},
         ${taskInfo.transactionId},
         ${taskInfo.lastAccountBalance}
-        ) ON CONFLICT (transaction_id) DO UPDATE SET lastAccountBalance = wallet.lastAccountBalance + 1""".executeUpdate().apply()
+        ) ON DUPLICATE KEY UPDATE lastAccountBalance = wallet.lastAccountBalance + 1""".executeUpdate().apply()
     }
 
   }
