@@ -55,6 +55,7 @@ object Main {
     }, "KafkaToProjection", config(remotingPort, akkaManagementPort))
 
     def start(ctx: ActorContext[Command],
+              joinedCluster: Boolean,
               settings: ProcessorSettings,
               walletRepository:WalletRepository): Behavior[Command] = {
       import ctx.executionContext
@@ -74,13 +75,10 @@ object Main {
                  settings: ProcessorSettings,
                  walletRepository:WalletRepository): Behavior[Command] = Behaviors
       .receive[Command] {
-        case (ctx, NodeMemberUp) if joinedCluster =>
-          ctx.log.info("Member has joined the cluster")
-          start(ctx,settings,walletRepository)
         case (_, NodeMemberUp)  =>
           ctx.log.info("Member has joined the cluster")
           //starting(ctx,joinedCluster = true, settings,walletRepository)
-          start(ctx, settings,walletRepository)
+          start(ctx, joinedCluster = true, settings,walletRepository)
       }
 
     def running(ctx: ActorContext[Command], binding: Future[Http.ServerBinding]): Behavior[Command] =
