@@ -19,7 +19,7 @@ import scala.util.{Failure, Success}
 
 sealed trait Command
 case object NodeMemberUp extends Command
-final case class ShardingStarted(region: ActorRef[TrsTask.Command]) extends Command
+final case object ShardingStarted extends Command
 final case class BindingFailed(reason: Throwable) extends Command
 
 object Main {
@@ -47,67 +47,61 @@ object Main {
         val upAdapter = ctx.messageAdapter[SelfUp](_ => NodeMemberUp)
         cluster.subscriptions ! Subscribe(upAdapter, classOf[SelfUp])
         ScalikeJdbcSetup.init(ctx.system)
+        val settings = ProcessorSettings("kafka-source-provider", ctx.system.toClassic)
         val walletRepository = new WalletRepositoryImpl()
-        TrsTaskProjection.init(ctx.system, walletRepository)
 
-        val settings = ProcessorSettings("kafka-to-sharding-processor", ctx.system.toClassic)
-        ctx.pipeToSelf(TrsTask.init(ctx.system, settings)) {
-          case Success(extractor) => ShardingStarted(extractor)
-          case Failure(ex) => throw ex
-        }
-        starting(ctx, None, joinedCluster = false, settings,walletRepository)
-    }, "KafkaToSharding", config(remotingPort, akkaManagementPort))
 
-    def start(ctx: ActorContext[Command], region: ActorRef[TrsTask.Command], settings: ProcessorSettings,
+        starting(ctx,joinedCluster = false,settings,walletRepository)
+    }, "KafkaToProjection", config(remotingPort, akkaManagementPort))
+
+    def start(ctx: ActorContext[Command],
+              settings: ProcessorSettings,
               walletRepository:WalletRepository): Behavior[Command] = {
       import ctx.executionContext
-      ctx.log.info("Sharding started and joined cluster. Starting event processor")
-      val eventProcessor = ctx.spawn[Nothing](UserEventsKafkaProcessor(region, settings), "kafka-event-processor")
-      val binding: Future[Http.ServerBinding] = startGrpc(ctx.system, frontEndPort, region,walletRepository)
+      ctx.log.info("Starting projection ")
+      TrsTaskProjection.init(ctx.system,settings, walletRepository)
+
+      val binding: Future[Http.ServerBinding] = startGrpc(ctx.system, frontEndPort,walletRepository)
       binding.onComplete {
         case Failure(t) =>
           ctx.self ! BindingFailed(t)
         case _ =>
       }
-      running(ctx, binding, eventProcessor)
+      running(ctx, binding)
     }
-
-    def starting(ctx: ActorContext[Command], sharding: Option[ActorRef[TrsTask.Command]],
-                 joinedCluster: Boolean, settings: ProcessorSettings,walletRepository:WalletRepository): Behavior[Command] = Behaviors
+    def starting(ctx: ActorContext[Command],
+                 joinedCluster: Boolean,
+                 settings: ProcessorSettings,
+                 walletRepository:WalletRepository): Behavior[Command] = Behaviors
       .receive[Command] {
-        case (ctx, ShardingStarted(region)) if joinedCluster =>
-          ctx.log.info("Sharding has started")
-          start(ctx, region, settings,walletRepository)
-        case (_, ShardingStarted(region)) =>
-          ctx.log.info("Sharding has started")
-          starting(ctx, Some(region), joinedCluster, settings,walletRepository)
-        case (ctx, NodeMemberUp) if sharding.isDefined =>
+        case (ctx, NodeMemberUp) if joinedCluster =>
           ctx.log.info("Member has joined the cluster")
-          start(ctx, sharding.get, settings,walletRepository)
+          start(ctx,settings,walletRepository)
         case (_, NodeMemberUp)  =>
           ctx.log.info("Member has joined the cluster")
-          starting(ctx, sharding, joinedCluster = true, settings,walletRepository)
+          //starting(ctx,joinedCluster = true, settings,walletRepository)
+          start(ctx, settings,walletRepository)
       }
 
-    def running(ctx: ActorContext[Command], binding: Future[Http.ServerBinding], processor: ActorRef[Nothing]): Behavior[Command] =
+    def running(ctx: ActorContext[Command], binding: Future[Http.ServerBinding]): Behavior[Command] =
       Behaviors.receiveMessagePartial[Command] {
         case BindingFailed(t) =>
           ctx.log.error("Failed to bind front end", t)
           Behaviors.stopped
       }.receiveSignal {
-        case (ctx, Terminated(`processor`)) =>
-          ctx.log.warn("Kafka event processor stopped. Shutting down")
+        case (ctx, Terminated(processor)) =>
+          ctx.log.warn(s"Actor Ref ${processor.path}. Shutting down")
           binding.map(_.unbind())(ctx.executionContext)
           Behaviors.stopped
       }
 
 
-    def startGrpc(system: ActorSystem[_], frontEndPort: Int, region: ActorRef[TrsTask.Command],
+    def startGrpc(system: ActorSystem[_], frontEndPort: Int,
                   walletRepository:WalletRepository): Future[Http.ServerBinding] = {
       implicit val sys: ActorSystem[_] = system
       implicit val ec: ExecutionContext = system.executionContext
 
-      val grpcService: TrsTaskService = new TrsTaskGrpcService(system, region,walletRepository)
+      val grpcService: TrsTaskService = new TrsTaskGrpcService(system,walletRepository)
       val service: HttpRequest => Future[HttpResponse] =
         ServiceHandler.concatOrNotFound(
           TrsTaskServiceHandler.partial(grpcService),

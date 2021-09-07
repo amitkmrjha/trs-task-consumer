@@ -1,10 +1,10 @@
-val AkkaVersion = "2.6.15"
+val AkkaVersion = "2.6.16"
 val AlpakkaKafkaVersion = "2.1.1"
 val AkkaManagementVersion = "1.1.1"
 val AkkaHttpVersion = "10.2.6"
 val LogbackVersion = "1.2.3"
-val AkkaPersistenceJdbcVersion = "5.0.1"
-val AkkaProjectionVersion = "1.2.1"
+val AkkaPersistenceJdbcVersion = "5.0.4"
+val AkkaProjectionVersion = "1.2.2"
 val ScalikeJdbcVersion = "3.5.0"
 
 ThisBuild / scalaVersion := "2.13.5"
@@ -38,7 +38,6 @@ lazy val client = project
 lazy val processor = project
   .in(file("processor"))
   .enablePlugins(Cinnamon,AkkaGrpcPlugin, JavaAgent)
-  .settings(javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime;test")
   .settings(
     run / cinnamon := true,
     libraryDependencies ++= Seq(
@@ -51,15 +50,10 @@ lazy val processor = project
       "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
       "com.lightbend.akka.management" %% "akka-management" % AkkaManagementVersion,
       "com.lightbend.akka.management" %% "akka-management-cluster-http" % AkkaManagementVersion,
-      // 3. Using Akka Persistence
-      "com.typesafe.akka" %% "akka-persistence-typed" % AkkaVersion,
-      "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
-      "com.lightbend.akka" %% "akka-persistence-jdbc" % AkkaPersistenceJdbcVersion,
-      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion % Test,
       "mysql" % "mysql-connector-java" % "8.0.26",
       // 4. Querying or projecting data from Akka Persistence
-      "com.typesafe.akka" %% "akka-persistence-query" % AkkaVersion,
-      "com.lightbend.akka" %% "akka-projection-eventsourced" % AkkaProjectionVersion,
+      "com.lightbend.akka" %% "akka-persistence-jdbc" % AkkaPersistenceJdbcVersion,
+      "com.lightbend.akka" %% "akka-projection-kafka"  % AkkaProjectionVersion,
       "com.lightbend.akka" %% "akka-projection-jdbc" % AkkaProjectionVersion,
       "org.scalikejdbc" %% "scalikejdbc" % ScalikeJdbcVersion,
       "org.scalikejdbc" %% "scalikejdbc-config" % ScalikeJdbcVersion,

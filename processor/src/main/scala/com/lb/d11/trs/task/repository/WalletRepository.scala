@@ -1,10 +1,7 @@
 package com.lb.d11.trs.task.repository
 
-import com.lb.d11.trs.task.TrsTask.{ConsumerRecordInfo, TaskInfo}
+import com.lb.d11.trs.task.TrsTaskProjectionHandler.{ConsumerRecordInfo, TaskInfo}
 import scalikejdbc._
-
-import scala.collection.IndexedSeq.iterableFactory
-
 
 trait WalletRepository {
   def update(session: ScalikeJdbcSession, userId: String, taskInfo: TaskInfo,

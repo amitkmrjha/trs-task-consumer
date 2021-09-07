@@ -5,8 +5,6 @@ option java_package = "com.lb.d11.trs.task";
 option java_outer_classname = "TrsTaskProto";
 
 service TrsTaskService {
-    rpc  UserStats (TrsTaskStatsRequest) returns (TrsTaskStatsResponse) {}
-
     rpc TrsTaskByUser(TrsTaskStatsRequest) returns ( TrsTaskRecordResponse) {}
 
 }

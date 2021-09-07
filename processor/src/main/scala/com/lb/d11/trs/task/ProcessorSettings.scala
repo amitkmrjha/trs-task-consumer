@@ -31,10 +31,4 @@ final class ProcessorSettings(val bootstrapServers: String, val topics: List[Str
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withStopTimeout(0.seconds)
   }
-
-  /**
-   * By using the same consumer group id as our entity type key name we can setup multiple consumer groups and connect
-   * each with a different sharded entity coordinator.
-   */
-  val entityTypeKey: EntityTypeKey[TrsTask.Command] = EntityTypeKey(groupId)
 }

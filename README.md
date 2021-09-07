@@ -11,8 +11,7 @@ and its support for Kafka in [Alpakka Kafka Cluster Sharding](https://doc.akka.i
 
 The sample is made up of three applications:
 * `producer` A Kafka producer, that produces events about users 
-* `processor` An Akka Cluster Sharding application that reads the Kafka topic and forwards the messages to a sharded
-              entity that represents a user and a gRPC front end for accessing the sharded actors state
+* `processor` An Akka Cluster application using projection to persist data externally
 * `client` A gRPC client for interacting with the cluster
               
 The sample demonstrates how the external shard allocation strategy can be used so messages are processed locally.
