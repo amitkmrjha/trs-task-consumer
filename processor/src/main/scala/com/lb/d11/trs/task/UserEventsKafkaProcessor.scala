@@ -68,7 +68,7 @@ object UserEventsKafkaProcessor {
     Consumer.sourceWithOffsetContext(processorSettings.kafkaConsumerSettings(), subscription)
       // MapAsync and Retries can be replaced by reliable delivery
       .mapAsync(20) { record =>
-        logger.info(s"user id consumed kafka partition offset ${record.key()}->${record.partition()}->${record.offset()} ")
+        //logger.info(s"user id consumed kafka partition offset ${record.key()}->${record.partition()}->${record.offset()} ")
         retry(() =>
           shardRegion.ask[Done](replyTo => {
             val messageProto = TrsTaskMessage.parseFrom(record.value())

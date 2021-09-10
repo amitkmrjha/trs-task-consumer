@@ -1,45 +1,41 @@
 package com.lb.d11.trs.task
 
-import akka.Done
-import akka.actor.typed.ActorSystem
+import akka.{Done, NotUsed}
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.adapter.TypedActorSystemOps
-import akka.stream.OverflowStrategy
+import akka.stream.{FlowShape, OverflowStrategy}
 import com.lb.d11.trs.task.TrsTask.UserTrsTask
 import slick.backend.DatabaseConfig
 import slick.jdbc.JdbcProfile
 import akka.stream.alpakka.slick.scaladsl._
 import akka.stream.scaladsl._
+import com.lightbend.cinnamon.akka.stream.CinnamonAttributes
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.Future
 
 class  SlickPostgres(system: ActorSystem[_]) {
+   implicit val ec = system.executionContext
+
   implicit val session = SlickSession.forConfig("slick-postgres")
 
-  val jdbcQueue:SourceQueueWithComplete[UserTrsTask] = {
+  val jdbcQueue = {
     import session.profile.api._
 
     val bufferSize = 100
+
     implicit val sys = system
-    /*Source
-      .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
-      .toMat(Slick.sink(toUserSql))(Keep.left)
-      .run*/
 
     Source
       .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
-      .via(Slick.flow(toUserSql))
-      .log("nr-of-updated-rows")
-      .toMat(Sink.ignore)(Keep.left)
+      .via(Slick.flowWithPassThrough { message =>
+        toUserSql(message).map(_ => message)
+      })
+      .toMat(Sink.foreach(_.replyTo ! Done))(Keep.left)
+      .named("jdbc-flow")
+      .addAttributes(CinnamonAttributes.instrumented(reportByName = true))
       .run
 
-
-    /*Source
-      .queue[UserTrsTask](bufferSize, OverflowStrategy.fail)
-      .toMat(
-        Sink.ignore
-      )(Keep.left)
-      .run*/
   }
 
   def toUserSql(user:UserTrsTask) = {
@@ -53,7 +49,7 @@ class  SlickPostgres(system: ActorSystem[_]) {
         ${user.status},
         ${user.transactionId},
         ${user.lastAccountBalance}
-        )"""
+        )ON CONFLICT (transaction_id) DO UPDATE SET lastAccountBalance = wallet.lastAccountBalance + 1"""
   }
 
 }

@@ -40,7 +40,8 @@ object TrsTask {
   final case class UserTrsTask(userId: String,roundId: String,leagueId: String,transType: String,
                                amount: Int, status: String, transactionId: String,lastAccountBalance: Int,
                                replyTo: ActorRef[Done]) extends Command
-  final case class QueueSubmitStatus(userId: String,amount: Int,status: String,replyTo: ActorRef[Done])  extends Command
+  final case class QueueSubmitSuccess(userId: String,amount: Int,replyTo: ActorRef[Done])  extends Command
+  final case class QueueSubmitFailure(userId: String,failure: String,replyTo: ActorRef[Done])  extends Command
 
   final case class GetRunningTotal(userId: String, replyTo: ActorRef[RunningTotal]) extends Command
 
@@ -54,31 +55,26 @@ object TrsTask {
       implicit val ec: ExecutionContext = ctx.executionContext
       Behaviors.receiveMessage[Command] {
         case x:UserTrsTask =>
-          val futureResult = queueOffer(slickMySql,x)
-         ctx.pipeToSelf(futureResult){
-           case Success(s) => QueueSubmitStatus(x.userId,x.amount,s, x.replyTo)
-           case Failure(e) => QueueSubmitStatus(x.userId,x.amount,e.getMessage, x.replyTo)
-         }
+          ctx.pipeToSelf(slickMySql.jdbcQueue.offer(x)){
+            case Success(s) => s match {
+              case QueueOfferResult.Enqueued    => QueueSubmitSuccess(x.userId,x.amount, x.replyTo) //enqueued
+              case QueueOfferResult.Dropped     => QueueSubmitFailure(x.userId,"Dropped",x.replyTo )
+              case QueueOfferResult.Failure(ex) => QueueSubmitFailure(x.userId,s"Offer failed ${ex.getMessage}",x.replyTo )
+              case QueueOfferResult.QueueClosed => QueueSubmitFailure(x.userId,s"Source Queue closed",x.replyTo )
+            }
+            case Failure(e) => QueueSubmitFailure(x.userId,s"pipeToSelf Failure ${e.getMessage}",x.replyTo )
+          }
           Behaviors.same
         case GetRunningTotal(id, replyTo) =>
-          ctx.log.info("user {} running total queried", id)
           replyTo ! runningTotal
           Behaviors.same
-        case QueueSubmitStatus(id,amount,status,replyTo) =>
+        case QueueSubmitSuccess(id,amount,replyTo) =>
           val total = runningTotal.total+amount
-          replyTo ! Done
-          ctx.log.info("user {}, runningTotal {}, queue submit {}", id,total,status)
           running(runningTotal.copy(total),slickMySql)
+        case QueueSubmitFailure(id,status,replyTo) =>
+          ctx.log.error(s"QueueSubmitFailure for user ${id} : message ${status}")
+            Behaviors.same
       }
-    }
-  }
-
-  def queueOffer(slickMySql:SlickPostgres,task:UserTrsTask)(implicit  ec:ExecutionContext ) = {
-    slickMySql.jdbcQueue.offer(task) map{
-      case QueueOfferResult.Enqueued    => s"enqueued ${task.userId} ${task.amount}"
-      case QueueOfferResult.Dropped     => s"dropped ${task.userId} ${task.amount}"
-      case QueueOfferResult.Failure(ex) => s"Offer failed ${ex.getMessage}"
-      case QueueOfferResult.QueueClosed => "Source Queue closed"
     }
   }
 }

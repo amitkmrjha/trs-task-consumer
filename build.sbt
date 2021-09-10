@@ -69,6 +69,7 @@ lazy val producer = project
 lazy val CinnamonDependency = Seq(
   // Use Coda Hale Metrics
   Cinnamon.library.cinnamonCHMetrics,
+  Cinnamon.library.cinnamonAkkaStream,
   // Use Akka instrumentation
   Cinnamon.library.cinnamonAkka,
   Cinnamon.library.cinnamonAkkaTyped,
