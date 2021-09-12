@@ -51,7 +51,7 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
         ${user.status},
         ${user.transactionId},
         ${user.lastAccountBalance}
-        )ON CONFLICT (transaction_id) DO UPDATE SET lastAccountBalance = wallet.lastAccountBalance + 1"""
+        )ON DUPLICATE KEY UPDATE lastAccountBalance = wallet.lastAccountBalance + 1"""
   }
 
   override def getQueue(userId: String):Option[SourceQueueWithComplete[UserTrsTask]] = {
