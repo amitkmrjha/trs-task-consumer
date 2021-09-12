@@ -9,6 +9,8 @@ import akka.http.scaladsl._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.management.scaladsl.AkkaManagement
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.lb.d11.trs.task.TrsTask.UserTrsTask
+import com.lb.d11.trs.task.repository.{ShardedSlickQueue, UserTaskQueue}
 
 import scala.concurrent.duration._
 import com.typesafe.config.{Config, ConfigFactory}
@@ -47,10 +49,9 @@ object Main {
         cluster.subscriptions ! Subscribe(upAdapter, classOf[SelfUp])
         val settings = ProcessorSettings("kafka-to-sharding-processor", ctx.system.toClassic)
 
-        val slickMySql:SlickPostgres = new SlickPostgres(ctx.system)
-        ctx.system.toClassic.registerOnTermination(() => slickMySql.session.close())
+        val slickQueue:ShardedSlickQueue[UserTrsTask] = new UserTaskQueue(ctx.system)
 
-        ctx.pipeToSelf(TrsTask.init(ctx.system, settings,slickMySql)) {
+        ctx.pipeToSelf(TrsTask.init(ctx.system, settings,slickQueue)) {
           case Success(extractor) => ShardingStarted(extractor)
           case Failure(ex) => throw ex
         }
