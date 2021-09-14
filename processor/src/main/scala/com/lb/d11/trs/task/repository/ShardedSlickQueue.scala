@@ -34,7 +34,10 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
       .via(Slick.flowWithPassThrough { message =>
         toUserSql(message).map(_ => message)
       })
-      .toMat(Sink.foreach(_.replyTo ! Done))(Keep.left)
+      .toMat(Sink.foreach(p => {
+        println(s"processed task for user ${p.userId}")
+        p.replyTo ! Done
+      }))(Keep.left)
       .named(s"slick-flow")
       .addAttributes(CinnamonAttributes.instrumented(reportByName = true))
       .run

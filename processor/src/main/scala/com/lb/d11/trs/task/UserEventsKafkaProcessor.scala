@@ -19,6 +19,8 @@ import akka.kafka.CommitterSettings
 import akka.kafka.Subscriptions
 import akka.pattern.retry
 import com.lb.d11.trs.task.serialization.TrsTaskMessage
+import com.lightbend.cinnamon.akka.stream.CinnamonAttributes
+import com.lightbend.cinnamon.akka.stream.CinnamonAttributes.SourceWithInstrumented
 import org.slf4j.LoggerFactory
 
 object UserEventsKafkaProcessor {
@@ -86,7 +88,7 @@ object UserEventsKafkaProcessor {
           attempts = 5,
           delay = 1.second
         )
-      }
-      .runWith(Committer.sinkWithOffsetContext(CommitterSettings(classic)))
+      }.runWith(Committer.sinkWithOffsetContext(CommitterSettings(classic)))
+      //.instrumentedRunWith(Committer.sinkWithOffsetContext(CommitterSettings(classic)))(name = "kafka-consumer", substreams = true)
   }
 }
