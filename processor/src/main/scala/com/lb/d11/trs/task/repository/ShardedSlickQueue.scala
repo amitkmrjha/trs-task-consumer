@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import com.lb.d11.trs.task.TrsTask.UserTrsTask
 import com.lb.d11.trs.task.repository.ShardedSlickSession.ShardedDataBase
 import com.lightbend.cinnamon.akka.stream.CinnamonAttributes
+import slick.jdbc.SQLActionBuilder
 
 
 trait ShardedSlickQueue[T] {
@@ -34,6 +35,7 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
       .via(Slick.flowWithPassThrough { message =>
         toUserSql(message).map(_ => message)
       })
+      .log("nr-of-updated-rows")
       .toMat(Sink.foreach(p => {
         println(s"processed task for user ${p.userId}")
         p.replyTo ! Done
@@ -55,6 +57,7 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
         ${user.transactionId},
         ${user.lastAccountBalance}
         )ON DUPLICATE KEY UPDATE lastAccountBalance = wallet.lastAccountBalance + 1"""
+
   }
 
   override def getQueue(userId: String):Option[SourceQueueWithComplete[UserTrsTask]] = {
