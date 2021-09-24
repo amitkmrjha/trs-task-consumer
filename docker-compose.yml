@@ -12,7 +12,7 @@ services:
       DOCKER_API_VERSION: 1.22
       KAFKA_ADVERTISED_HOST_NAME: localhost
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_CREATE_TOPICS: "user-events:128:1"
+      KAFKA_CREATE_TOPICS: "user-events:20:1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   mysql-db:

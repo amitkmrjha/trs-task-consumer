@@ -4,12 +4,11 @@ import akka.Done
 import akka.actor.typed.ActorSystem
 import akka.stream.OverflowStrategy
 import akka.stream.alpakka.slick.scaladsl.{Slick, SlickSession}
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import com.lb.d11.trs.task.TrsTask.UserTrsTask
 import com.lb.d11.trs.task.repository.ShardedSlickSession.ShardedDataBase
 import com.lightbend.cinnamon.akka.stream.CinnamonAttributes
-import slick.jdbc.SQLActionBuilder
-
+import scala.concurrent.duration._
 
 trait ShardedSlickQueue[T] {
   def getQueue(userId:String):Option[SourceQueueWithComplete[T]]
@@ -24,7 +23,7 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
   private val userTaskQueuesMap:Map[ShardedDataBase,SourceQueueWithComplete[UserTrsTask]] = shardedSession.getSessions().map { e =>
     implicit val slickSession = e._2
     implicit val sys = system
-    val bufferSize = 100
+    val bufferSize = 2000
     e._1 -> createSourceQueue(e._1.name,bufferSize)
   }.toMap
 
@@ -32,15 +31,16 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
     Source
       .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
       .map(_.copy(status = dbName))
+      .groupedWithin(50,50.millis)
       .via(Slick.flowWithPassThrough { message =>
-        toUserSql(message).map(_ => message)
+        toUserSqlBatch(message).map(_ => message)
       })
       .log("nr-of-updated-rows")
       .toMat(Sink.foreach(p => {
-        println(s"processed task for user ${p.userId}")
-        p.replyTo ! Done
+        println(s"Database ${dbName} batch[${p.size}] inserted")
+        p.map(_.replyTo ! Done)
       }))(Keep.left)
-      .named(s"slick-flow")
+      .named(s"slick-flow-${dbName}")
       .addAttributes(CinnamonAttributes.instrumented(reportByName = true))
       .run
   }
@@ -58,6 +58,26 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
         ${user.lastAccountBalance}
         )ON DUPLICATE KEY UPDATE lastAccountBalance = wallet.lastAccountBalance + 1"""
 
+  }
+
+  private def toUserSqlBatch(users:Seq[UserTrsTask]) (implicit slickSession:SlickSession) = {
+    import slickSession.profile.api._
+    val SQL = """INSERT INTO wallet VALUES(?,?,?,?,?,?,?,?)ON DUPLICATE KEY UPDATE lastAccountBalance = wallet.lastAccountBalance + 1"""
+    SimpleDBIO[List[Int]] { session =>
+      val statement = session.connection.prepareStatement(SQL)
+      users.map { row =>
+        statement.setString(1, row.userId)
+        statement.setString(2, row.roundId)
+        statement.setString(3, row.leagueId)
+        statement.setString(4, row.transType)
+        statement.setInt(5, row.amount)
+        statement.setString(6, row.status)
+        statement.setString(7, row.transactionId)
+        statement.setInt(8, row.lastAccountBalance)
+        statement.addBatch()
+      }
+      statement.executeBatch().toList
+    }
   }
 
   override def getQueue(userId: String):Option[SourceQueueWithComplete[UserTrsTask]] = {
