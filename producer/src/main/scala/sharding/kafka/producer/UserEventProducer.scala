@@ -39,8 +39,9 @@ object UserEventProducer extends App {
   val done: Future[Done] =
     Source
       .tick(1.second, 1.second, "tick")
-      .map(msg => createMessage)
-      .runWith(Producer.plainSink(producerSettings))
+      .map(msg => createMultipleMessage(msg))
+      .via(Producer.flexiFlow(producerSettings))
+      .runWith(Sink.ignore)
 
   val maxRound = 50
   val maxLeague = 50
@@ -64,7 +65,7 @@ object UserEventProducer extends App {
   }
 
   def createMultipleMessage[PassThroughType](passThrough: PassThroughType) = {
-    val messages = (1 to 200 ).map{randomEntityId => {
+    val messages = (1 to 500 ).map{randomEntityId => {
       val round = Random.nextInt(maxRound).toString
       val league = Random.nextInt(maxLeague).toString
       val trsType = "Wallet"
@@ -76,7 +77,7 @@ object UserEventProducer extends App {
       new ProducerRecord[String, Array[Byte]](producerConfig.topic, randomEntityId.toString, message)
     }}
     log.info(s"Sending ${messages.size} message  to ${ producerConfig.topic} topic.")
-      ProducerMessage.multi(messages,passThrough)
+    ProducerMessage.multi(messages,passThrough)
   }
 
 

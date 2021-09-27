@@ -73,14 +73,8 @@ lazy val CinnamonDependency = Seq(
   // Use Akka instrumentation
   Cinnamon.library.cinnamonAkka,
   Cinnamon.library.cinnamonAkkaTyped,
-  // Use Akka Persistence instrumentation
-  Cinnamon.library.cinnamonAkkaPersistence,
-  // Use Akka Projection instrumentation
-  Cinnamon.library.cinnamonAkkaProjection,
   // Use Akka HTTP instrumentation
   Cinnamon.library.cinnamonAkkaHttp,
-  // Use Akka gRPC instrumentation
-  Cinnamon.library.cinnamonAkkaGrpc,
 
   Cinnamon.library.cinnamonJvmMetricsProducer,
 
