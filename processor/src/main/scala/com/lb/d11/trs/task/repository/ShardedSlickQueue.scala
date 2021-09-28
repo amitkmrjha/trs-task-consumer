@@ -24,7 +24,7 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
   private val userTaskQueuesMap:Map[ShardedDataBase,SourceQueueWithComplete[UserTrsTask]] = shardedSession.getSessions().map { e =>
     implicit val slickSession = e._2
     implicit val sys = system
-    val bufferSize = 10000
+    val bufferSize = 1000
     e._1 -> createSourceQueue(e._1.name,bufferSize)
   }.toMap
 
@@ -32,16 +32,16 @@ class UserTaskQueue(system: ActorSystem[_]) extends ShardedSlickQueue[UserTrsTas
     Source
       .queue[UserTrsTask](bufferSize, OverflowStrategy.backpressure)
       .map(_.copy(status = dbName))
+      .groupedWithin(400,5.millis)
       .async
-      //.groupedWithin(200,1.millis)
       .via(Slick.flowWithPassThrough { message =>
-        toUserSql(message).map(_ => message)
+        toUserSqlBatch(message).map(_ => message)
       })
-      .log("nr-of-updated-rows")
       .async
+      .log("nr-of-updated-rows")
       .toMat(Sink.foreach(p => {
-        println(s"processed task for user ${p.userId}")
-        p.replyTo ! Done
+        println(s"Database ${dbName} batch[${p.size}] inserted")
+        p.map(_.replyTo ! Done)
       }))(Keep.left)
       .named(s"slick-flow-${dbName}")
       .addAttributes(CinnamonAttributes.instrumented(reportByName = true))

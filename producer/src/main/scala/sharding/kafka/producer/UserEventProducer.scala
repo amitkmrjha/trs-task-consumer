@@ -65,7 +65,7 @@ object UserEventProducer extends App {
   }
 
   def createMultipleMessage[PassThroughType](passThrough: PassThroughType) = {
-    val messages = (1 to 500 ).map{randomEntityId => {
+    val messages = (1 to 1000 ).map{randomEntityId => {
       val round = Random.nextInt(maxRound).toString
       val league = Random.nextInt(maxLeague).toString
       val trsType = "Wallet"
