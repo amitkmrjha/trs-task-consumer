@@ -1,4 +1,4 @@
-# Kafka to Akka cluster shardin        g
+# Kafka to Akka cluster sharding
 
 
 Read the following documentation to learn more about [Akka Cluster External Shard Allocation](https://doc.akka.io/docs/akka/current/typed/cluster-sharding.html#external-shard-allocation) 
