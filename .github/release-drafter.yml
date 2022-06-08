@@ -1,22 +1,31 @@
-mplate: |
-  ## Akka $NEXT_PATCH_VERSION Released
-
-  Dear hakkers,
-
-  We are pleased to announce a new patch release of Akka 2.6. This release includes the following changes:
+name-template: 'v$RESOLVED_VERSION 🌈'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+  - title: '🧰 Maintenance'
+    label: 'chore'
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+template: |
+  ## Changes
 
   $CHANGES
-
-  A total of *TODO* issues were closed since *TODO*. The complete list can be found on the *TODO* $NEXT_PATCH_VERSION milestone on GitHub.
-
-  # Credits 
-
-  For this release we had the help of *TODO* committers – thank you all very much!
-
-  *TODO*
-
-  Thanks to [Lightbend](https://www.lightbend.com) for their continued sponsorship of the Akka core team's efforts. Lightbend [offers commercial support](https://www.lightbend.com/lightbend-platform-subscription) for Akka.
-
-  Happy hakking!
-
-  - The Akka Team
