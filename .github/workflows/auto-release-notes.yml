@@ -2,8 +2,8 @@ name: Release Drafter
 
 on:
   push:
-    branches:
-      - release
+    tags:        
+      - v1.**
 
 jobs:
   update_release_draft:
