@@ -1,12 +1,12 @@
 # Kafka to Akka cluster sharding
 
+This is auto generated notes
 
 Read the following documentation to learn more about [Akka Cluster External Shard Allocation](https://doc.akka.io/docs/akka/current/typed/cluster-sharding.html#external-shard-allocation) 
 and its support for Kafka in [Alpakka Kafka Cluster Sharding](https://doc.akka.io/docs/alpakka-kafka/current/cluster-sharding.html).
 
 
 ![alt text](./trs.jpeg)
-
 
 # Running the sample 
 
