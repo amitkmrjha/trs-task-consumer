@@ -1,5 +1,8 @@
 # Kafka to Akka cluster sharding
 
+
+
+
 Read the following documentation to learn more about [Akka Cluster External Shard Allocation](https://doc.akka.io/docs/akka/current/typed/cluster-sharding.html#external-shard-allocation) 
 and its support for Kafka in [Alpakka Kafka Cluster Sharding](https://doc.akka.io/docs/alpakka-kafka/current/cluster-sharding.html).
 
@@ -31,7 +34,7 @@ Project is configured to use Akka Cinnamon . We need to configure provide creden
 Once the postgres database is running , we need to execute following command to create table for kafk consumer to store record.
 
 ```
-docker exec -i trs-task-consumer_postgres-db_1 psql -U trs-task -t < ddl-scripts/create_wallet_tables.sql
+docker exec -i trs-task-consumer_mysql-db_1 mysql --database=trs-task-db -uroot -p"admin" -t < ddl-scripts/create_wallet_tables.sql
 
 ```
 

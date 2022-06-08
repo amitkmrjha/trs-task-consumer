@@ -6,9 +6,8 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.cluster.sharding.external.ExternalShardAllocationStrategy
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity}
 import akka.kafka.cluster.sharding.KafkaClusterSharding
-import akka.pattern.{ask, pipe}
-import akka.stream.{OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
+import akka.stream.{QueueOfferResult}
+import com.lb.d11.trs.task.repository.{ ShardedSlickQueue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -17,7 +16,7 @@ import scala.util.Success
 
 object TrsTask {
 
-  def init(system: ActorSystem[_], settings: ProcessorSettings,slickMySql:SlickPostgres): Future[ActorRef[Command]] = {
+  def init(system: ActorSystem[_], settings: ProcessorSettings,taskQueue: ShardedSlickQueue[UserTrsTask]): Future[ActorRef[Command]] = {
     import system.executionContext
     KafkaClusterSharding(settings.system).messageExtractorNoEnvelope(
       timeout = 10.seconds,
@@ -27,7 +26,7 @@ object TrsTask {
     ).map(messageExtractor => {
       system.log.info("Message extractor created. Initializing sharding")
       ClusterSharding(system).init(
-        Entity(settings.entityTypeKey)(createBehavior = _ => TrsTask(slickMySql))
+        Entity(settings.entityTypeKey)(createBehavior = _ => TrsTask(taskQueue))
           .withAllocationStrategy(new ExternalShardAllocationStrategy(system, settings.entityTypeKey.name))
           .withMessageExtractor(messageExtractor))
     })
@@ -48,14 +47,14 @@ object TrsTask {
   // state
   final case class RunningTotal(total: Int) extends CborSerializable
 
-  def apply(slickMySql:SlickPostgres): Behavior[Command] = running(RunningTotal(0),slickMySql)
+  def apply(taskQueue: ShardedSlickQueue[UserTrsTask]): Behavior[Command] = running(RunningTotal(0),taskQueue)
 
-  private def running(runningTotal: RunningTotal,slickMySql:SlickPostgres): Behavior[Command] = {
+  private def running(runningTotal: RunningTotal,taskQueue: ShardedSlickQueue[UserTrsTask]): Behavior[Command] = {
     Behaviors.setup { ctx =>
       implicit val ec: ExecutionContext = ctx.executionContext
       Behaviors.receiveMessage[Command] {
         case x:UserTrsTask =>
-          ctx.pipeToSelf(slickMySql.jdbcQueue.offer(x)){
+          ctx.pipeToSelf(submitToQueue(x,taskQueue)){
             case Success(s) => s match {
               case QueueOfferResult.Enqueued    => QueueSubmitSuccess(x.userId,x.amount, x.replyTo) //enqueued
               case QueueOfferResult.Dropped     => QueueSubmitFailure(x.userId,"Dropped",x.replyTo )
@@ -70,11 +69,21 @@ object TrsTask {
           Behaviors.same
         case QueueSubmitSuccess(id,amount,replyTo) =>
           val total = runningTotal.total+amount
-          running(runningTotal.copy(total),slickMySql)
+          running(runningTotal.copy(total),taskQueue)
         case QueueSubmitFailure(id,status,replyTo) =>
           ctx.log.error(s"QueueSubmitFailure for user ${id} : message ${status}")
             Behaviors.same
       }
     }
   }
+
+  private def submitToQueue(x:UserTrsTask , taskQueue: ShardedSlickQueue[UserTrsTask] )  = {
+    taskQueue.getQueue(x.userId) match {
+      case Some(q) => q.offer(x)
+      case None => Future.failed(
+        new Exception(s"No Sharded Queue found configured with Data Base for user ${x.userId}. Submit task ${x} failed ")
+      )
+    }
+  }
+
 }
